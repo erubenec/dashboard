@@ -274,6 +274,38 @@ export const EditSettings: Story = {
   },
 };
 
+export const EditSettingsSchedule: Story = {
+  play: async () => {
+    await openEdit("svc-wiki");
+    await openTab("settings");
+    await waitForSelector("[data-testid=schedule-editor]");
+  },
+};
+
+export const EditSettingsScheduleEnable: Story = {
+  play: async () => {
+    await openEdit("svc-grafana");
+    await openTab("settings");
+    await clickTestId("toggle-schedule");
+    await waitForSelector("[data-testid=schedule-editor]");
+    await settle();
+  },
+};
+
+export const EditSettingsScheduleInvalid: Story = {
+  play: async () => {
+    await EditSettingsScheduleEnable.play!({} as never);
+    // A window that ends before it starts must show its error.
+    await waitForSelector("[data-testid=schedule-window-0]");
+    const end = document.querySelector<HTMLInputElement>(
+      "[data-testid=schedule-window-end]",
+    );
+    await type(end, "07:00");
+    await waitForSelector("[data-testid=schedule-window-error]");
+    await settle();
+  },
+};
+
 const serviceTabs = (id: string) => ({
   Targets: { play: () => openEdit(id) } as Story,
   AccessControl: {

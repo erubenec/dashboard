@@ -192,6 +192,19 @@ const services = [
       password_auth: { enabled: true, password: "********" },
       pin_auth: { enabled: true, pin: "****" },
     },
+    schedule: {
+      timezone: "Europe/Madrid",
+      windows: [
+        {
+          days: ["mon", "tue", "wed", "thu", "fri"],
+          start: "08:00",
+          end: "17:00",
+        },
+        { days: ["sat"], start: "10:00", end: "24:00" },
+      ],
+      start_date: "2026-12-01",
+      end_date: "2026-12-31",
+    },
     meta: { created_at: created, status: "certificate_pending" },
   },
   {

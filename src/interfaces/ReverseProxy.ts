@@ -20,6 +20,7 @@ export interface ReverseProxy {
   rewrite_redirects?: boolean;
   auth?: ReverseProxyAuth;
   access_restrictions?: AccessRestrictions;
+  schedule?: ServiceSchedule;
   meta?: ReverseProxyMeta;
   private?: boolean;
   access_groups?: string[];
@@ -39,6 +40,37 @@ export interface AccessRestrictions {
   allowed_countries?: string[];
   blocked_countries?: string[];
   crowdsec_mode?: CrowdSecMode;
+}
+
+export const ServiceScheduleDays = [
+  "mon",
+  "tue",
+  "wed",
+  "thu",
+  "fri",
+  "sat",
+  "sun",
+] as const;
+
+export type ServiceScheduleDay = (typeof ServiceScheduleDays)[number];
+
+export interface ServiceScheduleWindow {
+  days: ServiceScheduleDay[];
+  /** HH:MM, inclusive, in the schedule timezone. */
+  start: string;
+  /** HH:MM or 24:00, exclusive, in the schedule timezone. */
+  end: string;
+}
+
+export interface ServiceSchedule {
+  /** IANA timezone name, e.g. "Europe/Madrid". */
+  timezone: string;
+  /** Empty means active all day, every day, within the date range. */
+  windows?: ServiceScheduleWindow[];
+  /** First active day, YYYY-MM-DD. */
+  start_date?: string;
+  /** Last active day (inclusive), YYYY-MM-DD. */
+  end_date?: string;
 }
 
 export interface ReverseProxyMeta {

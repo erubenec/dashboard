@@ -60,6 +60,7 @@ import {
   ReverseProxyTargetProtocol,
   ReverseProxyTargetType,
   ServiceMode,
+  ServiceSchedule,
 } from "@/interfaces/ReverseProxy";
 import useGroupHelper from "@/modules/groups/useGroupHelper";
 import AuthHeaderModal from "@/modules/reverse-proxy/auth/AuthHeaderModal";
@@ -74,6 +75,7 @@ import {
   ReverseProxyServiceModeSelector,
   SERVICE_MODES,
 } from "@/modules/reverse-proxy/ReverseProxyServiceModeSelector";
+import { ReverseProxySchedule } from "@/modules/reverse-proxy/schedule/ReverseProxySchedule";
 import { useReverseProxyAddress } from "@/modules/reverse-proxy/targets/ReverseProxyAddressInput";
 import ReverseProxyTargetModal from "@/modules/reverse-proxy/targets/ReverseProxyTargetModal";
 import { type Target } from "@/modules/reverse-proxy/targets/ReverseProxyTargetSelector";
@@ -347,6 +349,11 @@ export default function ReverseProxyModal({
 
   const [accessControlHasErrors, setAccessControlHasErrors] = useState(false);
 
+  const [schedule, setSchedule] = useState<ServiceSchedule | undefined>(
+    reverseProxy?.schedule,
+  );
+  const [scheduleHasErrors, setScheduleHasErrors] = useState(false);
+
   // Auth modal states
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [ssoModalOpen, setSsoModalOpen] = useState(false);
@@ -546,6 +553,8 @@ export default function ReverseProxyModal({
         rewrite_redirects: isL4Mode ? undefined : rewriteRedirects,
         auth: isL4Mode ? undefined : auth,
         access_restrictions: accessRestrictions,
+        // The PUT replaces the service, so leaving this out clears the schedule.
+        schedule: isL4Mode ? undefined : schedule,
         private: isPrivate ? true : undefined,
         access_groups: isPrivate
           ? savedAccessGroups.map((g) => g.id as string)
@@ -821,6 +830,13 @@ export default function ReverseProxyModal({
 
           <TabsContent value={"settings"} className={"pb-8"}>
             <div className={"px-8 flex-col flex gap-6"}>
+              {!isL4Mode && (
+                <ReverseProxySchedule
+                  value={schedule}
+                  onChange={setSchedule}
+                  onValidationChange={setScheduleHasErrors}
+                />
+              )}
               {(serviceMode === ServiceMode.TCP ||
                 serviceMode === ServiceMode.TLS) && (
                   <FancyToggleSwitch
@@ -1045,7 +1061,8 @@ export default function ReverseProxyModal({
                         !canSaveService ||
                         !permission?.services?.create ||
                         !!timeoutError ||
-                        accessControlHasErrors
+                        accessControlHasErrors ||
+                        scheduleHasErrors
                       }
                       onClick={handleSubmit}
                     >
@@ -1067,7 +1084,8 @@ export default function ReverseProxyModal({
                     !canSaveService ||
                     !permission?.services?.update ||
                     !!timeoutError ||
-                    accessControlHasErrors
+                    accessControlHasErrors ||
+                    scheduleHasErrors
                   }
                   onClick={handleSubmit}
                 >
