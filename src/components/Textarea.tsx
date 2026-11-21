@@ -11,6 +11,8 @@ export interface InputProps
   error?: string;
   customElement?: React.ReactNode;
   resize?: boolean;
+  /** Monospace text that scrolls instead of growing, for code or markup. */
+  code?: boolean;
 }
 
 const inputVariants = cva("", {
@@ -34,7 +36,15 @@ const inputVariants = cva("", {
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, InputProps>(
   (
-    { className, variant = "default", resize, customElement, error, ...props },
+    {
+      className,
+      variant = "default",
+      resize,
+      customElement,
+      error,
+      code,
+      ...props
+    },
     ref,
   ) => {
     return (
@@ -51,6 +61,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, InputProps>(
               "border",
               "overflow-hidden",
               className,
+              code && "font-mono overflow-auto",
               resize ? "resize" : "resize-none",
             )}
             style={{

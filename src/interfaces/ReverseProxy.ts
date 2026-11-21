@@ -21,6 +21,7 @@ export interface ReverseProxy {
   auth?: ReverseProxyAuth;
   access_restrictions?: AccessRestrictions;
   schedule?: ServiceSchedule;
+  error_page?: ServiceErrorPage;
   meta?: ReverseProxyMeta;
   private?: boolean;
   access_groups?: string[];
@@ -71,6 +72,15 @@ export interface ServiceSchedule {
   start_date?: string;
   /** Last active day (inclusive), YYYY-MM-DD. */
   end_date?: string;
+}
+
+export interface ServiceErrorPage {
+  /**
+   * A complete HTML document served instead of the proxy's error page. The
+   * placeholders {{status}}, {{title}}, {{message}} and {{request_id}} are
+   * replaced with HTML-escaped values.
+   */
+  html: string;
 }
 
 export interface ReverseProxyMeta {

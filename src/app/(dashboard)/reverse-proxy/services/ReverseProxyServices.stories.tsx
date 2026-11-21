@@ -292,6 +292,39 @@ export const EditSettingsScheduleEnable: Story = {
   },
 };
 
+export const EditSettingsErrorPage: Story = {
+  play: async () => {
+    await openEdit("svc-wiki");
+    await openTab("settings");
+    await waitForSelector("[data-testid=error-page-editor]");
+    await waitForSelector("[data-testid=error-page-preview]");
+    await settle();
+  },
+};
+
+export const EditSettingsErrorPageEnable: Story = {
+  play: async () => {
+    await openEdit("svc-grafana");
+    await openTab("settings");
+    await clickTestId("toggle-error-page");
+    await waitForSelector("[data-testid=error-page-editor]");
+    await settle();
+  },
+};
+
+export const EditSettingsErrorPageInvalid: Story = {
+  play: async () => {
+    await EditSettingsErrorPageEnable.play!({} as never);
+    // An empty page cannot be saved and must show why.
+    const html = document.querySelector<HTMLTextAreaElement>(
+      "[data-testid=error-page-html]",
+    );
+    await type(html, " ");
+    await findText(/enter the html of the page/i);
+    await settle();
+  },
+};
+
 export const EditSettingsScheduleInvalid: Story = {
   play: async () => {
     await EditSettingsScheduleEnable.play!({} as never);

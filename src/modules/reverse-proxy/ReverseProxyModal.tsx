@@ -59,6 +59,7 @@ import {
   ReverseProxyTarget,
   ReverseProxyTargetProtocol,
   ReverseProxyTargetType,
+  ServiceErrorPage,
   ServiceMode,
   ServiceSchedule,
 } from "@/interfaces/ReverseProxy";
@@ -68,6 +69,7 @@ import AuthNetBirdOnlyModal from "@/modules/reverse-proxy/auth/AuthNetBirdOnlyMo
 import AuthPasswordModal from "@/modules/reverse-proxy/auth/AuthPasswordModal";
 import AuthPinModal from "@/modules/reverse-proxy/auth/AuthPinModal";
 import AuthSSOModal from "@/modules/reverse-proxy/auth/AuthSSOModal";
+import { ReverseProxyErrorPage } from "@/modules/reverse-proxy/error-page/ReverseProxyErrorPage";
 import { ReverseProxyAccessControlRules } from "@/modules/reverse-proxy/ReverseProxyAccessControlRules";
 import ReverseProxyHTTPTargets from "@/modules/reverse-proxy/ReverseProxyHTTPTargets";
 import ReverseProxyLayer4Content from "@/modules/reverse-proxy/ReverseProxyLayer4Content";
@@ -354,6 +356,11 @@ export default function ReverseProxyModal({
   );
   const [scheduleHasErrors, setScheduleHasErrors] = useState(false);
 
+  const [errorPage, setErrorPage] = useState<ServiceErrorPage | undefined>(
+    reverseProxy?.error_page,
+  );
+  const [errorPageHasErrors, setErrorPageHasErrors] = useState(false);
+
   // Auth modal states
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [ssoModalOpen, setSsoModalOpen] = useState(false);
@@ -555,6 +562,7 @@ export default function ReverseProxyModal({
         access_restrictions: accessRestrictions,
         // The PUT replaces the service, so leaving this out clears the schedule.
         schedule: isL4Mode ? undefined : schedule,
+        error_page: isL4Mode ? undefined : errorPage,
         private: isPrivate ? true : undefined,
         access_groups: isPrivate
           ? savedAccessGroups.map((g) => g.id as string)
@@ -837,6 +845,13 @@ export default function ReverseProxyModal({
                   onValidationChange={setScheduleHasErrors}
                 />
               )}
+              {!isL4Mode && (
+                <ReverseProxyErrorPage
+                  value={errorPage}
+                  onChange={setErrorPage}
+                  onValidationChange={setErrorPageHasErrors}
+                />
+              )}
               {(serviceMode === ServiceMode.TCP ||
                 serviceMode === ServiceMode.TLS) && (
                   <FancyToggleSwitch
@@ -1062,7 +1077,8 @@ export default function ReverseProxyModal({
                         !permission?.services?.create ||
                         !!timeoutError ||
                         accessControlHasErrors ||
-                        scheduleHasErrors
+                        scheduleHasErrors ||
+                        errorPageHasErrors
                       }
                       onClick={handleSubmit}
                     >
@@ -1085,7 +1101,8 @@ export default function ReverseProxyModal({
                     !permission?.services?.update ||
                     !!timeoutError ||
                     accessControlHasErrors ||
-                    scheduleHasErrors
+                    scheduleHasErrors ||
+                    errorPageHasErrors
                   }
                   onClick={handleSubmit}
                 >

@@ -205,6 +205,9 @@ const services = [
       start_date: "2026-12-01",
       end_date: "2026-12-31",
     },
+    error_page: {
+      html: '<!doctype html><title>{{title}}</title><body style="font-family:sans-serif;text-align:center;padding:3rem"><h1>{{status}}</h1><p>Wiki is closed for maintenance. {{message}}</p><small>{{request_id}}</small></body>',
+    },
     meta: { created_at: created, status: "certificate_pending" },
   },
   {
