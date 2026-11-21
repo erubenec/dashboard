@@ -1,10 +1,12 @@
 # Builds the NetBird dashboard from upstream main plus this fork's feature
-# branches and publishes it to ghcr.io.
+# branches and publishes a multi-arch image (amd64, arm64 and arm) to ghcr.io.
 #
-# Nothing is written back to the repository. The runner merges
-# upstream/main with the branches listed in features.txt in a throwaway branch, so
-# this default branch stays a tiny, conflict-free `fork-ci` branch.
-# The build steps mirror upstream's build_and_push.yml.
+# Nothing is written back to the repository. The runner merges upstream/main
+# with the branches listed in features.txt in a throwaway branch (see
+# scripts/compose.sh), so this default branch stays a tiny `fork-ci` branch.
+# The build steps mirror upstream's build_and_push.yml. The dashboard is a
+# static export, so one build serves every architecture and QEMU only has to
+# run the cheap image steps.
 name: fork build
 
 on:
@@ -29,6 +31,9 @@ permissions:
 
 env:
   UPSTREAM_REPO: netbirdio/dashboard
+  # Part of the build fingerprint: bump it to rebuild when the way images are
+  # built changes without upstream or the features changing.
+  BUILD_REV: platforms=linux/amd64,linux/arm64,linux/arm
 
 jobs:
   build:
@@ -44,50 +49,8 @@ jobs:
       - name: Compose upstream main with the feature branches
         id: compose
         run: |
-          set -euo pipefail
-          git config user.name "fork-ci"
-          git config user.email "fork-ci@users.noreply.github.com"
-          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
-          git fetch --no-tags upstream main
-
-          # The fork also carries every upstream branch, so features are listed
-          # explicitly in features.txt instead of matched by name. Read it
-          # before switching to the build branch, where it does not exist.
-          features=$(grep -vE '^[[:space:]]*(#|$)' features.txt || true)
-
-          up=$(git rev-parse upstream/main)
-          git checkout -q -B build "$up"
-          fingerprint_input="$up"
-          merged=""
-
-          for name in $features; do
-            ref="origin/$name"
-            if ! git rev-parse --verify -q "refs/remotes/$ref" > /dev/null; then
-              echo "::error::features.txt lists $name but $ref does not exist in the fork."
-              exit 1
-            fi
-            echo "Merging $ref"
-            if ! git merge --no-edit --no-ff "$ref"; then
-              git merge --abort || true
-              echo "::error::Conflict merging $ref into upstream/main ($up). Rebase that branch on upstream and push it again."
-              exit 1
-            fi
-            fingerprint_input="$fingerprint_input $(git rev-parse "$ref")"
-            merged="$merged $ref"
-          done
-
-          owner=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
-          {
-            echo "fp=$(echo "$fingerprint_input" | sha256sum | cut -c1-12)"
-            echo "up7=${up:0:7}"
-            echo "date=$(date -u +%Y%m%d)"
-            echo "prefix=ghcr.io/${owner}"
-          } >> "$GITHUB_OUTPUT"
-          {
-            echo "### Composed tree"
-            echo "- upstream/main: \`$up\`"
-            echo "- features:${merged:- none}"
-          } >> "$GITHUB_STEP_SUMMARY"
+          cp scripts/compose.sh "$RUNNER_TEMP/compose.sh"
+          bash "$RUNNER_TEMP/compose.sh"
 
       - name: Log in to the GitHub Container Registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
@@ -98,31 +61,35 @@ jobs:
 
       - name: Skip when this exact combination is already published
         id: check
+        env:
+          PREFIX: ${{ steps.compose.outputs.prefix }}
+          FP: ${{ steps.compose.outputs.fp }}
+          FORCE: ${{ github.event.inputs.force }}
         run: |
-          if docker buildx imagetools inspect "${{ steps.compose.outputs.prefix }}/netbird-dashboard:src-${{ steps.compose.outputs.fp }}" > /dev/null 2>&1; then
-            echo "built=true" >> "$GITHUB_OUTPUT"
+          if [ "$FORCE" != "true" ] && docker buildx imagetools inspect "$PREFIX/netbird-dashboard:src-$FP" > /dev/null 2>&1; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
             echo "Already built for this upstream and features combination; nothing to do."
           else
-            echo "built=false" >> "$GITHUB_OUTPUT"
+            echo "build=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Set up Node
-        if: steps.check.outputs.built != 'true' || github.event.inputs.force == 'true'
+        if: steps.check.outputs.build == 'true'
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: "24"
           cache: npm
 
       - name: Install dependencies
-        if: steps.check.outputs.built != 'true' || github.event.inputs.force == 'true'
+        if: steps.check.outputs.build == 'true'
         run: npm install
 
       - name: Write an empty local config
-        if: steps.check.outputs.built != 'true' || github.event.inputs.force == 'true'
+        if: steps.check.outputs.build == 'true'
         run: echo '{}' > .local-config.json
 
       - name: Download IronRDP release TS files
-        if: steps.check.outputs.built != 'true' || github.event.inputs.force == 'true'
+        if: steps.check.outputs.build == 'true'
         uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f # v1.13
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -132,7 +99,7 @@ jobs:
           out-file-path: public/ironrdp-pkg
 
       - name: Download IronRDP release JS files
-        if: steps.check.outputs.built != 'true' || github.event.inputs.force == 'true'
+        if: steps.check.outputs.build == 'true'
         uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f # v1.13
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -142,7 +109,7 @@ jobs:
           out-file-path: public/ironrdp-pkg
 
       - name: Download IronRDP release WASM file
-        if: steps.check.outputs.built != 'true' || github.event.inputs.force == 'true'
+        if: steps.check.outputs.build == 'true'
         uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f # v1.13
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -152,22 +119,26 @@ jobs:
           out-file-path: public/ironrdp-pkg
 
       - name: Build
-        if: steps.check.outputs.built != 'true' || github.event.inputs.force == 'true'
+        if: steps.check.outputs.build == 'true'
         run: npm run build
         env:
           NEXT_PUBLIC_DASHBOARD_VERSION: fork-${{ steps.compose.outputs.up7 }}
 
+      - name: Set up QEMU
+        if: steps.check.outputs.build == 'true'
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
+
       - name: Set up Docker Buildx
-        if: steps.check.outputs.built != 'true' || github.event.inputs.force == 'true'
+        if: steps.check.outputs.build == 'true'
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Build and push the dashboard image
-        if: steps.check.outputs.built != 'true' || github.event.inputs.force == 'true'
+        if: steps.check.outputs.build == 'true'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           file: docker/Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64,linux/arm
           push: true
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
